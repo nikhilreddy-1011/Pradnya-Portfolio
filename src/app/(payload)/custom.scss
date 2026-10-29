@@ -1,0 +1,8 @@
+/* Admin theming — echoes the public site's palette without fighting Payload's UI. */
+:root {
+  --theme-success-500: #a65f45;
+}
+.nav__brand,
+.graphic-logo {
+  font-family: 'Instrument Serif', Georgia, serif;
+}

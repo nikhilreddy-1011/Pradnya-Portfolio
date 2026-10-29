@@ -1,0 +1,96 @@
+/* ==========================================================================
+   SPACE / FORM — Design tokens
+   Single source of truth for type, space, colour and motion.
+   Breakpoints: mobile < 640 · tablet 640–1023 · desktop ≥ 1024 · large ≥ 1440
+   ========================================================================== */
+
+:root {
+  /* ── Typefaces (next/font injects --font-instrument / --font-manrope) ── */
+  --font-display: var(--font-instrument), 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-body: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* ── Type scale (fluid; min = mobile, max = large desktop) ─────────────
+     hero      44 → 104   (tablet ≈ 60, desktop ≈ 74, 1440 ≈ 94)
+     section   34 → 64    (tablet ≈ 42, desktop ≈ 49, 1440 ≈ 59)
+     project   36 → 76    (tablet ≈ 47, desktop ≈ 55, 1440 ≈ 68)
+     statement 28 → 48    editorial pull-lines
+     lead      16 → 20    project descriptions
+     body      15 → 17
+     brand     20 → 22    PRADNYA SALUNKHE label
+     eyebrow   13 → 15    INTERIOR DESIGN
+     meta      12 → 13    1,350 SQ.FT. · COURSEWORK
+     ui        12 → 13    nav, viewer controls
+     button    13 → 14                                                    */
+  --text-hero: clamp(2.75rem, 1.4rem + 5vw, 6.5rem);
+  --text-section: clamp(2.125rem, 1.5rem + 2.4vw, 4rem);
+  --text-project: clamp(2.25rem, 1.4rem + 3.2vw, 4.75rem);
+  --text-statement: clamp(1.75rem, 1.3rem + 1.6vw, 3rem);
+  --text-lead: clamp(1rem, 0.92rem + 0.3vw, 1.25rem);
+  --text-body: clamp(0.9375rem, 0.9rem + 0.16vw, 1.0625rem);
+  --text-brand: clamp(1.25rem, 1.15rem + 0.3vw, 1.375rem);
+  --text-eyebrow: clamp(0.8125rem, 0.78rem + 0.15vw, 0.9375rem);
+  --text-small: clamp(0.75rem, 0.73rem + 0.08vw, 0.8125rem);
+  --text-ui: clamp(0.75rem, 0.73rem + 0.08vw, 0.8125rem);
+  --text-button: clamp(0.8125rem, 0.79rem + 0.08vw, 0.875rem);
+  --text-input: 1rem;
+
+  --leading-display: 1;
+  --leading-heading: 1.06;
+  --leading-lead: 1.6;
+  --leading-body: 1.7;
+
+  --tracking-display: -0.012em;
+  --tracking-normal: 0;
+  --tracking-caps: 0.08em;
+  --tracking-wide: 0.12em;
+  --tracking-brand: 0.02em;
+
+  /* ── Space scale ─────────────────────────────────────────────────────── */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: clamp(2rem, 1.5rem + 2vw, 3rem);
+  --space-xl: clamp(3rem, 2rem + 4vw, 6rem);
+  --space-2xl: clamp(5rem, 3rem + 8vw, 10rem);
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  --container: 90rem; /* 1440 */
+  --container-text: 42rem; /* comfortable reading measure */
+  --gutter: clamp(1.25rem, 0.6rem + 3vw, 3.5rem);
+  --grid-gap: clamp(1rem, 0.5rem + 1.6vw, 2rem);
+  --header-h: 4.5rem;
+
+  /* ── Colour (semantic) — raw palette is defined in globals.css @theme ─ */
+  --color-background: var(--color-ivory);
+  --color-surface: var(--color-paper);
+  --color-text: var(--color-charcoal);
+  --color-muted: #65594c; /* secondary text, 6.0:1 on ivory */
+  --color-accent: var(--color-terracotta);
+  --color-accent-text: var(--color-terracotta-text);
+  --color-accent-on-ink: #c98a6f; /* 6.3:1 on ink */
+  --color-line: rgb(29 29 27 / 0.14);
+  --color-line-strong: rgb(29 29 27 / 0.32);
+  --color-ink-line: rgb(240 235 225 / 0.16);
+
+  /* ── Motion ──────────────────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 200ms;
+  --dur-base: 450ms;
+  --dur-slow: 900ms;
+  --dur-hero: 1600ms;
+
+  --radius-none: 0;
+  --radius-pill: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+    --dur-hero: 0ms;
+  }
+}
