@@ -188,7 +188,15 @@ export default async function ProjectPage({ params }: Params) {
       )}
 
       {p.models.length > 0 && (
-        <Chapter id="model" index={n('model')} title="3D model" wide ink intro="Watch the plan become a space, then orbit, zoom and explore.">
+        <Chapter
+          id="model"
+          index={n('model')}
+          eyebrow={p.models[0].kind ? 'Interactive 3D model' : undefined}
+          title={p.models[0].kind ? p.models[0].title : '3D model'}
+          wide
+          ink
+          intro={p.models[0].description ?? (p.models[0].kind ? undefined : 'Watch the plan become a space, then orbit, zoom and explore.')}
+        >
           <ModelStage model={p.models[0]} projectSlug={p.slug} fallbackHref={gallery.length ? '#gallery' : visuals.length ? '#visualisation' : '#main'} />
         </Chapter>
       )}

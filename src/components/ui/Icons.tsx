@@ -40,6 +40,13 @@ export const Reset = () => (
     <path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9M2.5 2v3.5H6" />
   </svg>
 )
+export const Orbit = () => (
+  <svg {...base}>
+    <ellipse cx="8" cy="8" rx="6" ry="2.6" />
+    <path d="M12.4 4.9 14 6.2l-1.9.8" />
+    <circle cx="8" cy="8" r="1" fill="currentColor" stroke="none" />
+  </svg>
+)
 export const Play = () => (
   <svg {...base} fill="currentColor" stroke="none">
     <path d="M4 2.5v11l9-5.5z" />

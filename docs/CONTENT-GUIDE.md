@@ -71,6 +71,10 @@ The site picks the right file per device (8K on capable desktops, 4K on phones) 
 
 See `3D-PIPELINE.md`. In short: SketchUp → export glTF/GLB → optimise → **3D Assets → Create new** → upload the `.glb`, a poster render, optional room views and hotspots.
 
+**A single piece of furniture or joinery** (e.g. the wardrobe): set **Kind → Object**. Objects get a simple turntable-style viewer instead of the plan → 3D build sequence: the whole piece is framed on load, drag/touch rotates, scroll/pinch/buttons zoom (with limits), Reset, an opt-in Auto-rotate and Fullscreen. Fill in **Description** (shown under the chapter title), **Dimensions** (shown as written — label estimates "approx.") and **Note** (small disclaimer, e.g. what is estimated). Set **Default camera position** to a point in front of the piece (the direction is used; the distance is chosen automatically so the whole piece fits). **An explorable interior** (e.g. Café Lumière): set **Kind → Room**. Same viewer without the build sequence, but with free orbit + pan, an **Auto-rotate** button, rotate/zoom buttons, a **Ceiling** cut-away toggle and any **Room views** you define (e.g. "Front view"). Name the cut-away node `ceil*` or `Ceiling_Removable*` (other `Ceiling_*` parts such as rims and tracks stay visible). Upload an optional **Lite** model (see `scripts/make-cafe-lite.mjs`) — phones and low-power devices get it automatically. The default camera position/target are used as the starting view; on portrait screens the distance is increased so the whole room stays in frame.
+
+Reuse the project's existing 3D asset field — do not add a second model for a second viewer.
+
 ## Walkthrough videos
 
 **Videos → Create new** → *Cloudinary* → **Upload video to Cloudinary** (large files upload in chunks and resume if the connection drops) → add a poster image → optional captions (.vtt) → link the video to the project.

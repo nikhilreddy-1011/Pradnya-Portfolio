@@ -74,6 +74,14 @@ export type Model3D = {
   poster: Img | null
   lite: { url: string; filesize?: number } | null
   buildSequence: boolean
+  /** `space` (default): a room/plan with the build sequence. `object`: a single piece of joinery or furniture. `room`: an explorable interior without the build sequence (orbit + pan, ceiling cut-away, auto-rotate). */
+  kind?: 'space' | 'object' | 'room'
+  /** Short line under the chapter title. */
+  description?: string
+  /** Small, quiet disclaimer shown under the viewer (e.g. what is estimated). */
+  note?: string
+  /** Approximate overall size, shown as given — e.g. "285 × 247 × 60 cm (approx.)". */
+  dimensions?: string
   cameraPosition?: Vec3
   cameraTarget?: Vec3
   views: { key: string; label: string; position?: Vec3; target?: Vec3 }[]

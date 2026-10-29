@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { Close, Cube, Expand, Layers, Play, Reset } from '@/components/ui/Icons'
+import { Chevron, Close, Cube, Expand, Layers, Minus, Orbit, Play, Plus, Reset } from '@/components/ui/Icons'
 import { Picture } from '@/components/ui/Picture'
 import { track } from '@/lib/analytics'
 import { formatBytes } from '@/lib/media'
@@ -47,6 +47,7 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
   const [view, setView] = useState<ViewRequest | null>(null)
   const [replay, setReplay] = useState(0)
   const [engaged, setEngaged] = useState(false)
+  const [autoRotate, setAutoRotate] = useState(false)
   const [env, setEnv] = useState({ lowPower: false, reduced: false, small: false })
   const pendingView = useRef<string | null>(null)
   const objectUrl = useRef<string | null>(null)
@@ -64,6 +65,12 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
     }
   }, [])
 
+  const isObject = model.kind === 'object'
+  const turntable = isObject || model.kind === 'room' // gets auto-rotate + rotate/zoom buttons
+  const step = (key: string) => {
+    setAutoRotate(false)
+    setView({ key, n: Date.now() })
+  }
   const useLite = Boolean(model.lite && (env.lowPower || env.small))
   const file = useLite && model.lite ? model.lite : { url: model.url, filesize: model.filesize }
 
@@ -148,8 +155,14 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
     <div>
       <div
         ref={frame}
-        className={`viewer ${isPseudo ? 'is-pseudo-full' : ''} ${isFull ? '' : 'aspect-[4/5] sm:aspect-[16/10] lg:aspect-[16/9]'}`}
-        onPointerDown={() => setEngaged(true)}
+        className={`viewer ${isPseudo ? 'is-pseudo-full' : ''} ${
+          isFull ? '' : isObject ? 'aspect-[4/5] sm:aspect-[4/3] lg:aspect-[16/10]' : 'aspect-[4/5] sm:aspect-[16/10] lg:aspect-[16/9]'
+        }`}
+        onPointerDown={(e) => {
+          setEngaged(true)
+          // The visitor has taken hold of the model — never fight them. (Toolbar buttons manage the state themselves.)
+          if (!(e.target as HTMLElement).closest('.viewer-bar')) setAutoRotate(false)
+        }}
         onPointerLeave={() => setEngaged(false)}
       >
         {/* Poster — visible until the scene is ready, and the fallback forever if 3D can't run. */}
@@ -172,6 +185,7 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
               replay={replay}
               animate={!env.reduced && !env.lowPower}
               zoomEnabled={engaged || isFull}
+              autoRotate={autoRotate}
               shadows={!env.lowPower && !env.small}
               onReady={onReady}
               onError={onError}
@@ -191,8 +205,10 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
             </button>
             <p className="max-w-xs text-[0.8125rem] text-on-ink-muted">
               {env.lowPower
-                ? 'This device may find 3D demanding. The renders below show the same space.'
-                : 'Drag to orbit · pinch or scroll to zoom · two fingers or right-drag to pan'}
+                ? `This device may find 3D demanding. The render above shows the same ${isObject ? 'piece' : 'space'}.`
+                : isObject
+                  ? 'Drag to rotate · pinch or scroll to zoom'
+                  : 'Drag to orbit · pinch or scroll to zoom · two fingers or right-drag to pan'}
             </p>
           </div>
         )}
@@ -207,7 +223,7 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
         )}
         {status === 'preparing' && (
           <div className="viewer-status" role="status" aria-live="polite">
-            <p className="t-meta">Preparing spatial view…</p>
+            <p className="t-meta">{turntable ? 'Preparing 3D view…' : 'Preparing spatial view…'}</p>
             <div className="progress-line" data-indeterminate="" />
           </div>
         )}
@@ -218,7 +234,7 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <a href={fallbackHref} className="btn btn-light">
-                View the project renders
+                {turntable ? 'View the project render' : 'View the project renders'}
               </a>
               {status === 'error' && (
                 <button type="button" className="btn btn-light" onClick={() => setStatus('idle')}>
@@ -252,7 +268,18 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
         {ready && (
           <>
             <div className="viewer-bar right-3 top-3" role="toolbar" aria-label="3D controls">
-              <button type="button" className="viewer-btn" onClick={() => setView({ key: '__home', n: Date.now() })} aria-label="Reset camera">
+              {turntable && (
+                <button
+                  type="button"
+                  className="viewer-btn"
+                  aria-pressed={autoRotate}
+                  onClick={() => setAutoRotate((v) => !v)}
+                  aria-label={autoRotate ? 'Stop auto-rotate' : 'Start auto-rotate'}
+                >
+                  <Orbit /> <span className="max-sm:hidden">Auto-rotate</span>
+                </button>
+              )}
+              <button type="button" className="viewer-btn" onClick={() => step('__home')} aria-label="Reset camera">
                 <Reset /> <span className="max-sm:hidden">Reset</span>
               </button>
               {model.buildSequence && (
@@ -264,6 +291,22 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
                 <Expand />
               </button>
             </div>
+            {turntable && (
+              <div className={`viewer-bar bottom-3 ${isObject ? 'left-3' : 'right-3'}`} role="toolbar" aria-label="Rotate and zoom">
+                <button type="button" className="viewer-btn" onClick={() => step('__rot_l')} aria-label="Rotate left">
+                  <Chevron dir="left" />
+                </button>
+                <button type="button" className="viewer-btn" onClick={() => step('__rot_r')} aria-label="Rotate right">
+                  <Chevron />
+                </button>
+                <button type="button" className="viewer-btn" onClick={() => step('__zoom_out')} aria-label="Zoom out">
+                  <Minus />
+                </button>
+                <button type="button" className="viewer-btn" onClick={() => step('__zoom_in')} aria-label="Zoom in">
+                  <Plus />
+                </button>
+              </div>
+            )}
             {(info.hasFurniture || info.hasCeiling || model.hotspots.length > 0) && (
               <div className="viewer-bar bottom-3 left-3" role="toolbar" aria-label="Layers">
                 {info.hasFurniture && (
@@ -313,7 +356,11 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
               key={v.key}
               type="button"
               className="chip border-[var(--color-ink-line)]"
-              onClick={() => (ready ? setView({ key: v.key, n: Date.now() }) : window.dispatchEvent(new CustomEvent('ps:focus-room', { detail: { key: v.key } })))}
+              onClick={() => {
+                setAutoRotate(false)
+                if (ready) setView({ key: v.key, n: Date.now() })
+                else window.dispatchEvent(new CustomEvent('ps:focus-room', { detail: { key: v.key } }))
+              }}
             >
               {v.label}
             </button>
@@ -331,6 +378,12 @@ export function ModelStage({ model, projectSlug, fallbackHref = '#gallery' }: { 
             </button>
           ))}
         </div>
+      )}
+      {turntable && (model.dimensions || model.note) && (
+        <p className="mt-4 max-w-[62ch] text-[0.8125rem] leading-relaxed text-on-ink-muted">
+          {model.dimensions && <span className="tabular mr-3 text-[var(--color-on-ink)]">{model.dimensions}</span>}
+          {model.note}
+        </p>
       )}
       {useLite && <p className="t-meta mt-3 text-on-ink-muted">Showing the lighter model for this device.</p>}
     </div>

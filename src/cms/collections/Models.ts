@@ -47,6 +47,25 @@ export const Models: CollectionConfig = {
       admin: { description: 'Optional lighter version (< 5 MB) used on phones and slow connections.' },
     },
     {
+      name: 'kind',
+      type: 'select',
+      defaultValue: 'space',
+      options: [
+        { label: 'Space — room or plan (build sequence)', value: 'space' },
+        { label: 'Object — single piece of joinery / furniture', value: 'object' },
+        { label: 'Room — explorable interior (orbit + pan, ceiling cut-away, no build sequence)', value: 'room' },
+      ],
+      admin: { description: 'Objects get a simple turntable-style viewer (tight camera limits). Rooms get free orbit + pan and a ceiling toggle (name the ceiling node ceil*). Neither plays the build sequence; both offer auto-rotate.' },
+    },
+    { name: 'description', type: 'textarea', admin: { description: 'One or two sentences shown under the chapter title.' } },
+    {
+      type: 'row',
+      fields: [
+        { name: 'dimensions', type: 'text', admin: { description: 'Shown as written — label estimates "approx.". e.g. 285 × 247 × 60 cm (approx.)' } },
+        { name: 'note', type: 'text', admin: { description: 'Small disclaimer under the viewer, e.g. what is estimated.' } },
+      ],
+    },
+    {
       name: 'buildSequence',
       type: 'checkbox',
       defaultValue: true,

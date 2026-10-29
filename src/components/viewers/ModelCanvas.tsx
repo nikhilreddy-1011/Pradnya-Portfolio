@@ -9,13 +9,21 @@
  *   → materials (clay → real) → lighting
  * Node names:  wall*  floor*  furn*  light*  ceil* (hidden by default, cutaway)
  */
-import { Environment, Html, Lightformer, OrbitControls, useGLTF } from '@react-three/drei'
+import { ContactShadows, Environment, Html, Lightformer, OrbitControls, useGLTF } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Component, type ComponentRef, type ReactNode, Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { KTX2Loader } from 'three-stdlib' // same loader family drei's useGLTF uses
 
 import type { Model3D, Vec3 } from '@/lib/types'
+
+const FOV = 38
+/** Camera distance at which an object of this size is framed whole, with a little air, at this aspect ratio. */
+const fitFor = (size: THREE.Vector3, aspect: number) => {
+  const vHalf = Math.tan(THREE.MathUtils.degToRad(FOV) / 2)
+  // Extra headroom vertically: the control bars sit along the top-right and bottom-left edges of the stage.
+  return Math.max((size.y * 1.28) / 2 / vHalf, (size.x * 1.16) / 2 / (vHalf * aspect)) + size.z / 2
+}
 
 export type ViewRequest = { key: string; n: number }
 export type SceneInfo = { hasFurniture: boolean; hasCeiling: boolean; stages: string[] }
@@ -32,6 +40,8 @@ type Props = {
   replay: number
   animate: boolean
   zoomEnabled: boolean
+  /** Object mode only: slow turntable. Stops as soon as the visitor takes control. */
+  autoRotate?: boolean
   shadows: boolean
   onReady: () => void
   onError: () => void
@@ -45,7 +55,8 @@ const PATTERNS: [Group, RegExp][] = [
   ['floor', /^floor/i],
   ['furn', /^(furn|furniture)/i],
   ['light', /^(light|lamp)/i],
-  ['ceil', /^ceil/i],
+  // cut-away ceiling: ceil* or Ceiling_Removable*. Other Ceiling_* parts (rims, tracks) stay visible.
+  ['ceil', /^ceil(?!ing_(?!removable))/i],
 ]
 const classify = (obj: THREE.Object3D): Group => {
   for (let o: THREE.Object3D | null = obj; o; o = o.parent) {
@@ -87,6 +98,12 @@ function Scene(props: Props) {
     loader.setKTX2Loader(ktx2)
   })
   const root = gltf.scene
+  const isObject = model.kind === 'object'
+  // `room`: an explorable interior without the build sequence — free orbit + pan, ceiling cut-away, turntable.
+  const isRoom = model.kind === 'room'
+  const turntable = isObject || isRoom
+  const viewAspect = useThree((s) => s.size.width / Math.max(1, s.size.height))
+  const aspectRef = useRef(viewAspect) // framing is computed once; resizes re-fit the distance below
 
   /* Analyse the model once: groups, bounds, default camera. */
   const info = useMemo(() => {
@@ -102,14 +119,28 @@ function Scene(props: Props) {
     const size = box.getSize(new THREE.Vector3())
     const center = box.getCenter(new THREE.Vector3())
     const maxDim = Math.max(size.x, size.y, size.z) || 1
-    const target = v3(model.cameraTarget) ?? new THREE.Vector3(center.x, box.min.y + size.y * 0.25, center.z)
-    const home =
+    const target = isObject
+      ? (v3(model.cameraTarget) ?? center.clone())
+      : (v3(model.cameraTarget) ?? new THREE.Vector3(center.x, box.min.y + size.y * 0.25, center.z))
+    let home =
       v3(model.cameraPosition) ??
       target.clone().add(new THREE.Vector3(0.55, 1.25, 0.95).normalize().multiplyScalar(maxDim * 1.5))
+    // Object mode: keep the camera's direction (the front of the piece), but choose the distance so the
+    // whole object is framed at the viewport's aspect ratio — width-limited on phones, height-limited on desktop.
+    let fitDistance = maxDim * 1.5
+    const dir = (v3(model.cameraPosition) ? home.clone().sub(target) : new THREE.Vector3(0, 0.12, 1)).normalize()
+    const baseDist = home.distanceTo(target)
+    // Distance that frames the piece/room at a given viewport aspect: objects are fitted to their bounding size;
+    // rooms keep the authored distance and pull back on narrow (portrait) stages so the width stays in view.
+    const dist = (aspect: number) => (isObject ? fitFor(size, aspect) : isRoom ? baseDist * Math.min(2.4, Math.max(1.12, 1.78 / aspect)) : baseDist)
+    if (turntable) {
+      fitDistance = dist(aspectRef.current)
+      home = target.clone().add(dir.clone().multiplyScalar(fitDistance))
+    }
     // Plan view: high and only slightly tilted, so the floor-level section reads as a drawing.
     const plan = new THREE.Vector3(center.x, box.min.y + maxDim * 1.45, center.z + maxDim * 0.28)
-    return { groups, box, size, center, maxDim, target, home, plan }
-  }, [root, model.cameraPosition, model.cameraTarget])
+    return { groups, box, size, center, maxDim, target, home, plan, fitDistance, dist, dir, baseDist }
+  }, [root, model.cameraPosition, model.cameraTarget, isObject, isRoom, turntable])
 
   const views = useMemo(() => {
     const map = new Map<string, { position: THREE.Vector3; target: THREE.Vector3 }>()
@@ -139,10 +170,45 @@ function Scene(props: Props) {
 
   useEffect(() => {
     if (!props.view) return
-    const v = views.get(props.view.key) ?? views.get('__home')!
+    const key = props.view.key
+    const c = controls.current
+    if (c && (key.startsWith('__rot') || key.startsWith('__zoom'))) {
+      // Keyboard / button access to what a drag or wheel does: step around the piece, or in and out.
+      const offset = camera.position.clone().sub(c.target)
+      if (key === '__rot_l' || key === '__rot_r') offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), (key === '__rot_l' ? 1 : -1) * (Math.PI / 6))
+      else {
+        const min = isObject ? info.fitDistance * 0.4 : c.minDistance
+        const max = isObject ? info.fitDistance * 1.8 : c.maxDistance
+        offset.setLength(Math.min(max, Math.max(min, offset.length() * (key === '__zoom_in' ? 0.78 : 1.28))))
+      }
+      flyTo(c.target.clone().add(offset), c.target.clone(), 0.5)
+      return
+    }
+    const v = views.get(key) ?? views.get('__home')!
+    if (turntable && key === '__home') {
+      flyTo(info.target.clone().add(info.dir.clone().multiplyScalar(info.dist(aspectRef.current))), info.target)
+      return
+    }
     flyTo(v.position, v.target)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.view?.n])
+
+  // Object mode: when the stage changes shape (rotation, fullscreen), re-fit the distance, keep the viewing angle.
+  useEffect(() => {
+    if (!turntable) return
+    const prev = aspectRef.current
+    if (Math.abs(prev - viewAspect) < 0.02) return
+    aspectRef.current = viewAspect
+    const c = controls.current
+    if (!c) return
+    const oldFit = info.dist(prev)
+    const newFit = info.dist(viewAspect)
+    const offset = camera.position.clone().sub(c.target)
+    offset.setLength((offset.length() / oldFit) * newFit)
+    camera.position.copy(c.target).add(offset)
+    c.update()
+    invalidate()
+  }, [viewAspect, turntable, info, camera, invalidate])
 
   /* ── Build sequence ────────────────────────────────────────────────── */
   const build = useRef<{
@@ -162,6 +228,16 @@ function Scene(props: Props) {
   const setLighting = (k: number) => {
     scene.environmentIntensity = 0.25 + 0.3 * k
     if (keyLight.current) keyLight.current.intensity = 0.4 + 1.1 * k
+  }
+  // An interior viewed from outside/above: brighter, even light so every surface reads (no build-up).
+  const roomLighting = () => {
+    scene.environmentIntensity = 0.9
+    if (keyLight.current) keyLight.current.intensity = 2.2
+  }
+  // A single piece of joinery wants even, soft studio light: no build-up, a little more fill.
+  const objectLighting = () => {
+    scene.environmentIntensity = 0.7
+    if (keyLight.current) keyLight.current.intensity = 1.1
   }
 
   const teardown = () => {
@@ -184,7 +260,9 @@ function Scene(props: Props) {
 
   const finish = () => {
     teardown()
-    setLighting(1)
+    if (isObject) objectLighting()
+    else if (isRoom) roomLighting()
+    else setLighting(1)
     info.groups.light.forEach((m) => {
       const mat = m.material as THREE.MeshStandardMaterial
       if (mat?.emissive && mat.emissive.getHex() === 0) {
@@ -289,6 +367,19 @@ function Scene(props: Props) {
   // Initialise once the model is in the scene; replay on request.
   useLayoutEffect(() => {
     camera.position.copy(info.home)
+    // Photo-matched (unlit) surfaces must reproduce the reference as supplied — tone mapping would darken them.
+    root.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (!m.isMesh) return
+      for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
+        // Reconstructed interiors have thin one-sided walls and glass: show both faces so nothing vanishes from outside.
+        if (isRoom) mat.side = THREE.DoubleSide
+        if ((mat as THREE.MeshBasicMaterial).isMeshBasicMaterial) {
+          mat.toneMapped = false
+          mat.needsUpdate = true
+        }
+      }
+    })
     ;(camera as THREE.PerspectiveCamera).near = Math.max(0.01, info.maxDim / 500)
     ;(camera as THREE.PerspectiveCamera).far = info.maxDim * 20
     camera.updateProjectionMatrix()
@@ -317,6 +408,16 @@ function Scene(props: Props) {
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 1 / 30)
+
+    // Object turntable: a calm 9°/s, independent of the display's frame rate. Only while the visitor asks for it.
+    if (turntable && props.autoRotate && controls.current && !fly.current) {
+      const c = controls.current
+      const off = camera.position.clone().sub(c.target)
+      off.applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(9) * Math.min(delta, 0.25))
+      camera.position.copy(c.target).add(off)
+      c.update()
+      invalidate()
+    }
 
     // Camera flight
     const f = fly.current
@@ -397,22 +498,32 @@ function Scene(props: Props) {
   // Free GPU memory when this model is replaced/unmounted.
   useEffect(
     () => () => {
+      // Release GPU memory: geometries, materials and every texture the model owns.
+      root.traverse((o) => {
+        const m = o as THREE.Mesh
+        if (!m.isMesh) return
+        m.geometry?.dispose()
+        for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
+          for (const v of Object.values(mat)) if (v && (v as THREE.Texture).isTexture) (v as THREE.Texture).dispose()
+          mat.dispose()
+        }
+      })
       useGLTF.clear(src)
       ktx2.dispose()
     },
-    [src, ktx2],
+    [src, ktx2, root],
   )
 
   const r = info.maxDim
   return (
     <>
       <color attach="background" args={['#ebe6dd']} />
-      <hemisphereLight args={['#fff6ea', '#3a342c', 0.3]} />
+      <hemisphereLight args={['#fff6ea', isRoom ? '#7b6a55' : '#3a342c', isRoom ? 1.4 : 0.3]} />
       <directionalLight
         ref={keyLight}
         position={[info.center.x + r * 0.6, info.box.max.y + r, info.center.z + r * 0.4]}
         intensity={1.6}
-        castShadow={props.shadows}
+        castShadow={props.shadows && !isObject}
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
         shadow-camera-left={-r}
@@ -429,6 +540,20 @@ function Scene(props: Props) {
       </Environment>
 
       <primitive object={root} />
+
+      {/* A soft contact shadow grounds the piece; baked once (frames=1), so it costs nothing while orbiting. */}
+      {isObject && props.shadows && (
+        <ContactShadows
+          position={[info.center.x, info.box.min.y - 0.002, info.center.z]}
+          scale={info.maxDim * 2.4}
+          opacity={0.32}
+          blur={2.6}
+          far={info.maxDim * 0.5}
+          resolution={512}
+          frames={1}
+          color="#3a2a1a"
+        />
+      )}
 
       {props.showHotspots &&
         model.hotspots.map((h, i) =>
@@ -457,10 +582,12 @@ function Scene(props: Props) {
         zoomSpeed={0.8}
         panSpeed={0.7}
         screenSpacePanning
+        enablePan={!isObject}
         enableZoom={props.zoomEnabled}
-        minDistance={r * 0.08}
-        maxDistance={r * 3}
-        maxPolarAngle={Math.PI * 0.495}
+        minDistance={isObject ? info.fitDistance * 0.4 : isRoom ? info.baseDist * 0.28 : r * 0.08}
+        maxDistance={isObject ? info.fitDistance * 1.8 : isRoom ? info.baseDist * 2.9 : r * 3}
+        minPolarAngle={isObject ? Math.PI * 0.3 : 0}
+        maxPolarAngle={isObject ? Math.PI * 0.53 : Math.PI * 0.495}
       />
     </>
   )
@@ -472,7 +599,7 @@ export default function ModelCanvas(props: Props) {
       frameloop="demand"
       dpr={[1, 1.75]}
       shadows={props.shadows}
-      camera={{ fov: 38, near: 0.05, far: 500, position: [8, 6, 8] }}
+      camera={{ fov: FOV, near: 0.05, far: 500, position: [8, 6, 8] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping

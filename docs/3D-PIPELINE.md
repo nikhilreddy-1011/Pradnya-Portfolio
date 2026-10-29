@@ -81,3 +81,8 @@ The project cover is an ordinary single-view render, not a crop of the panorama:
 - Normal (rectilinear) camera, **24–35 mm** equivalent, two-point perspective (camera level, vertical lines vertical).
 - Landscape, **at least 2400 px wide** (3000–3840 px ideal); optionally a portrait crop for phones.
 - One strong viewpoint of the kitchen (e.g. the L-corner with hood and cooktop).
+
+
+## Lite versions for heavy models
+
+Models with many small meshes (a furnished café can have ~1,900) are slow on phones because every mesh is a draw call. `scripts/make-cafe-lite.mjs` shows the recipe with glTF-Transform: anonymise nodes (except the cut-away ceiling), `flatten` + `join` (merge by material), `weld`, `dedup`, `prune`, WebP textures and meshopt compression. For Café Lumière this took the model from 1,880 meshes / 6.7 MB to 37 meshes / 1.2 MB with the same look. Upload it as the model's **Lite** asset; the viewer chooses it for small screens, Save-Data, slow connections and low-memory/low-core devices.

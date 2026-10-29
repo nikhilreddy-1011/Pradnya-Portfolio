@@ -418,6 +418,22 @@ export interface Model {
    */
   lite?: (string | null) | Model;
   /**
+   * Objects get a simple turntable-style viewer (tight camera limits). Rooms get free orbit + pan and a ceiling toggle (name the ceiling node ceil*). Neither plays the build sequence; both offer auto-rotate.
+   */
+  kind?: ('space' | 'object' | 'room') | null;
+  /**
+   * One or two sentences shown under the chapter title.
+   */
+  description?: string | null;
+  /**
+   * Shown as written — label estimates "approx.". e.g. 285 × 247 × 60 cm (approx.)
+   */
+  dimensions?: string | null;
+  /**
+   * Small disclaimer under the viewer, e.g. what is estimated.
+   */
+  note?: string | null;
+  /**
    * Play the plan → walls → floor → furniture → materials → lighting sequence (requires the naming convention).
    */
   buildSequence?: boolean | null;
@@ -874,6 +890,10 @@ export interface ModelsSelect<T extends boolean = true> {
   project?: T;
   poster?: T;
   lite?: T;
+  kind?: T;
+  description?: T;
+  dimensions?: T;
+  note?: T;
   buildSequence?: T;
   cameraPosition?: T;
   cameraTarget?: T;

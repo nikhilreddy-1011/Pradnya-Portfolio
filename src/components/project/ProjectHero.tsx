@@ -12,6 +12,8 @@ import type { Project } from '@/lib/types'
  *  - ultra-wide (>2.05:1) is shown uncropped on tablet/desktop and as a focal-point square on phones,
  *  - near-square / portrait-leaning renders (<1.55:1) are shown whole at every size, centred.
  * Covers without known dimensions fall back to the standard crop.
+ * Exception: when the hero is the project's only render (it opens the lightbox) and there is no dedicated
+ * mobile crop, a landscape render is shown whole at every size.
  */
 function HeroImage({ project: p }: { project: Project }) {
   const w = p.cover?.width
@@ -25,7 +27,13 @@ function HeroImage({ project: p }: { project: Project }) {
   let aspectRatio: string | undefined
   let width: string | undefined
   let style: React.CSSProperties | undefined
-  if (ratio >= 1.55 && ratio <= 2.05) {
+  if (zoomItems && !p.coverMobile && ratio >= 1.55 && ratio <= 2.05) {
+    // The hero is the one and only render and has no dedicated mobile crop: show all of it at every size
+    // (a portrait/cinematic crop would cut away the very content the render exists to show).
+    cls = ''
+    aspectRatio = String(ratio)
+    sizes = '(min-width: 1440px) 1520px, 100vw'
+  } else if (ratio >= 1.55 && ratio <= 2.05) {
     cls = 'aspect-[4/5] sm:aspect-[16/10] lg:aspect-[16/9]'
     sizes = '(max-width: 639px) 230vw, (max-width: 1023px) 130vw, (min-width: 1440px) 1520px, 115vw'
   } else if (ratio > 2.05) {
