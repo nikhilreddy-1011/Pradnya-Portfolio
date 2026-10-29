@@ -1,0 +1,42 @@
+{
+  "name": "pradnya-portfolio-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SPACE / FORM — public interior-design portfolio for Pradnya Salunkhe (Next.js, deployed on Vercel). Content comes from the Payload CMS service (apps/cms) over HTTPS.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=6000 next build",
+    "start": "next start",
+    "postinstall": "node scripts/copy-decoders.mjs",
+    "demo:glb": "node scripts/make-demo-glb.mjs",
+    "optimize:glb": "gltf-transform optimize",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-three/drei": "10.7.8",
+    "@react-three/fiber": "9.8.0",
+    "cross-env": "^7.0.3",
+    "hls.js": "1.7.3",
+    "next": "16.4.3",
+    "react": "19.2.9",
+    "react-dom": "19.2.9",
+    "server-only": "0.0.1",
+    "sharp": "0.35.5",
+    "three": "0.185.0",
+    "three-stdlib": "2.36.1"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.5.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "22.19.9",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@types/three": "0.185.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.7.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

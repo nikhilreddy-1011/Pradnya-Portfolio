@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+.env
+.env.*
+!.env.example
+media/
+documents/
+models/
+*.tsbuildinfo
+.DS_Store

@@ -2,10 +2,8 @@ node_modules
 .next
 out
 .env
-.env.local
-media/
-documents/
-models/
-public/decoders/
-*.tsbuildinfo
+.env.*
+!.env.example
 .DS_Store
+.vercel
+*.tsbuildinfo
